@@ -1,0 +1,1038 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smallville 24/7</title>
+<style>
+  :root{
+    --bg:#070a0e; --panel:#0d1219; --panel2:#111823; --line:#1c2634;
+    --ink:#e9eff7; --dim:#7e8ea4; --faint:#4b5869;
+    --talk:#5a9bd8; --conflict:#e8613c; --bond:#3fc08a; --rumour:#b083f0;
+    --affair:#e85a9b; --death:#9fb0c4; --arrival:#4fc9c0;
+    --gold:#f0b429;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);height:100vh;overflow:hidden;
+    font:13.5px/1.5 ui-sans-serif,-apple-system,"Segoe UI",system-ui,sans-serif}
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+
+  header{display:flex;align-items:center;gap:16px;padding:11px 18px;
+    border-bottom:1px solid var(--line);background:var(--panel);flex:none}
+  h1{font-size:15px;font-weight:650;letter-spacing:.2px}
+  h1 span{color:var(--faint);font-weight:400}
+  .clock{font-size:15px;color:var(--gold)}
+  .phase{font-size:10.5px;text-transform:uppercase;letter-spacing:.12em;color:var(--dim);
+    border:1px solid var(--line);border-radius:99px;padding:3px 10px}
+  .badge{margin-left:auto;font-size:10.5px;font-weight:600;letter-spacing:.08em;
+    padding:4px 11px;border-radius:99px;text-transform:uppercase}
+  .badge.mock{background:#2a2110;color:var(--gold);border:1px solid #4a3a16}
+  .badge.real{background:#0f2a1e;color:var(--bond);border:1px solid #1d4a36}
+
+  main{display:grid;grid-template-columns:1fr 300px 290px;height:calc(100vh - 51px)}
+  /* stream mode: map only, for an OBS window capture */
+  body.stream main{grid-template-columns:1fr 0 0}
+  body.stream section:not(:first-child){display:none}
+  body.stream header{position:absolute;top:0;left:0;right:0;z-index:9;
+    background:linear-gradient(180deg,rgba(6,9,13,.92),rgba(6,9,13,0));border:0}
+  body.stream main{height:100vh}
+  body.stream .hd{display:none}
+  #hint{position:absolute;right:12px;bottom:10px;font-size:10.5px;color:var(--faint);
+    background:rgba(6,10,14,.72);padding:4px 9px;border-radius:4px;z-index:6}
+  section{border-right:1px solid var(--line);overflow:hidden;display:flex;flex-direction:column}
+  section:last-child{border-right:0}
+  .hd{padding:8px 15px;font-size:10.5px;text-transform:uppercase;letter-spacing:.12em;
+    color:var(--dim);border-bottom:1px solid var(--line);background:var(--panel);
+    display:flex;justify-content:space-between;align-items:center;flex:none}
+
+  #stage{flex:1;position:relative;background:#05080b;overflow:hidden;
+    display:flex;align-items:center;justify-content:center}
+  #town{image-rendering:pixelated;image-rendering:crisp-edges;
+    max-width:100%;max-height:100%;display:block}
+  /* the lower third: the one piece of text a stream viewer actually reads */
+  #caption{position:absolute;left:0;right:0;bottom:0;z-index:4;pointer-events:none;
+    padding:26px 22px 14px;
+    background:linear-gradient(0deg,rgba(4,7,11,.93) 18%,rgba(4,7,11,.72) 62%,rgba(4,7,11,0));
+    opacity:0;transition:opacity .5s ease}
+  #caption.on{opacity:1}
+  #caption .line{font-size:16px;line-height:1.42;color:#f2f6fb;max-width:70ch;
+    text-shadow:0 1px 3px rgba(0,0,0,.9);font-weight:450}
+  #caption .meta{display:flex;gap:8px;align-items:center;margin-top:6px;
+    font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--faint)}
+  #caption .src{padding:1px 6px;border-radius:3px;border:1px solid var(--line)}
+  #caption .src.claude{color:#c6a7f5;border-color:#463263}
+  #caption .src.template{color:var(--faint)}
+  body.stream #caption{padding:40px 34px 26px}
+  body.stream #caption .line{font-size:21px;max-width:80ch}
+
+  #tip{position:absolute;pointer-events:none;background:rgba(8,12,18,.94);
+    border:1px solid var(--line);border-radius:5px;padding:5px 9px;font-size:11.5px;
+    opacity:0;transition:opacity .12s;white-space:nowrap;z-index:5;line-height:1.35}
+  #tip b{display:block;font-size:12.5px}
+  #tip em{font-style:normal;color:var(--dim);font-size:10.5px}
+
+  #feed{flex:1;overflow-y:auto;padding:3px 0}
+  #feed::-webkit-scrollbar,.rail::-webkit-scrollbar{width:7px}
+  #feed::-webkit-scrollbar-thumb,.rail::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+  .ev{padding:7px 15px 7px 13px;border-left:3px solid var(--faint);
+    animation:slide .35s ease;display:flex;gap:9px;align-items:baseline}
+  @keyframes slide{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+  .ev .tm{font-size:10px;color:var(--faint);flex:none;width:34px}
+  .ev .tx{font-size:12.5px;line-height:1.45}
+  .ev .pl{color:var(--faint);font-size:10.5px}
+  .ev.talk{border-color:var(--talk)}
+  .ev.conflict{border-color:var(--conflict);background:rgba(232,97,60,.08)}
+  .ev.bond{border-color:var(--bond)}
+  .ev.rumour{border-color:var(--rumour);background:rgba(176,131,240,.07)}
+  .ev.conflict .tx{color:#ffb9a5} .ev.rumour .tx{color:#ddc8ff}
+  .ev.affair{border-color:var(--affair);background:rgba(232,90,155,.10)}
+  .ev.affair .tx{color:#ffc2dd}
+  .ev.affair .tx::after{content:' — only you know';color:var(--affair);font-size:10px;opacity:.85}
+  .ev.caught{border-color:#ff3b3b;background:rgba(255,59,59,.16)}
+  .ev.caught .tx{color:#ffd0d0;font-weight:600}
+  .ev.death{border-color:var(--death);background:rgba(159,176,196,.09)}
+  .ev.death .tx{color:#dbe4ef}
+  .ev.arrival{border-color:var(--arrival)} .ev.arrival .tx{color:#b6f0ec}
+
+  .pair{display:flex;justify-content:space-between;align-items:baseline;
+    padding:5px 0;font-size:11.5px;border-bottom:1px solid rgba(255,255,255,.04)}
+  .pair:last-child{border-bottom:0}
+  .pair .who{line-height:1.3}
+  .pair .tag{font-size:9px;text-transform:uppercase;letter-spacing:.08em;
+    padding:1px 5px;border-radius:3px;white-space:nowrap;margin-left:6px}
+  .tag.cheat{background:rgba(232,90,155,.18);color:var(--affair)}
+  .tag.since{color:var(--faint)}
+  .risk{height:3px;background:var(--panel2);border-radius:2px;margin-top:3px;overflow:hidden}
+  .risk i{display:block;height:100%;background:var(--affair);transition:width .6s}
+  .chr{font-size:11px;line-height:1.4;padding:4px 0;display:flex;gap:7px}
+  .chr b{flex:none;font-size:9.5px;color:var(--faint);width:34px}
+  .chr.affair span{color:#ffc2dd} .chr.caught span{color:#ffb0b0}
+  .chr.death span{color:#dbe4ef} .chr.together span{color:#a8f0cd}
+  .chr.arrival span{color:#b6f0ec}
+
+  .rail{flex:1;overflow-y:auto}
+  .block{padding:11px 15px;border-bottom:1px solid var(--line)}
+  .blabel{font-size:9.5px;text-transform:uppercase;letter-spacing:.12em;color:var(--dim);margin-bottom:8px}
+  .rum{margin-bottom:12px}
+  .rum .t{font-size:12px;line-height:1.4;margin-bottom:5px;color:#e2d6f7}
+  .rum .bar{height:5px;background:var(--panel2);border-radius:3px;overflow:hidden}
+  .rum .bar i{display:block;height:100%;background:linear-gradient(90deg,#6d4aa8,var(--rumour));
+    border-radius:3px;transition:width .6s cubic-bezier(.22,1,.36,1)}
+  .rum .m{display:flex;justify-content:space-between;font-size:10px;color:var(--faint);margin-top:4px}
+  .rum .m b{color:var(--rumour);font-weight:600}
+  .kv{display:flex;justify-content:space-between;padding:3.5px 0;font-size:12px}
+  .kv span{color:var(--dim)}
+  .big{font-size:25px;font-weight:700;letter-spacing:-.5px;line-height:1.15}
+  .big.ok{color:var(--bond)} .big.warn{color:var(--conflict)}
+  .sub{font-size:10.5px;color:var(--faint);margin-top:2px}
+  .meter{height:6px;background:var(--panel2);border-radius:3px;overflow:hidden;margin-top:8px}
+  .meter i{display:block;height:100%;background:var(--bond);transition:width .6s ease,background .4s}
+  .hot{font-size:11.5px;line-height:1.45;padding:6px 0;border-bottom:1px solid var(--line);color:#ccd7e5}
+  .hot:last-child{border-bottom:0}
+  .hot em{color:var(--faint);font-style:normal;font-size:9.5px;display:block;margin-top:2px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Smallville <span>24/7</span></h1>
+  <div class="clock mono" id="clock">—</div>
+  <div class="phase" id="phase">—</div>
+  <div class="badge mock" id="badge">connecting</div>
+</header>
+
+<main>
+  <section>
+    <div class="hd"><span>The Town</span>
+      <span><b id="cammode" style="color:#f0b429">auto-cut</b>
+      <span id="pop" class="mono" style="margin-left:10px">—</span></span></div>
+    <div id="stage">
+      <canvas id="town" width="1024" height="640"></canvas>
+      <div id="caption"><div class="line" id="capline"></div>
+        <div class="meta"><span class="src" id="capsrc"></span><span id="captime"></span></div></div>
+      <div id="tip"></div>
+      <div id="hint">click: auto-cut · F: zoom · S: stream mode</div>
+    </div>
+  </section>
+  <section>
+    <div class="hd"><span>Live</span><span id="rate" class="mono">—</span></div>
+    <div id="feed"></div>
+  </section>
+  <section>
+    <div class="hd"><span>What it costs</span></div>
+    <div class="rail">
+      <div class="block">
+        <div class="blabel">Projected spend</div>
+        <div class="big mono ok" id="daily">$—</div>
+        <div class="sub" id="dailysub">per day</div>
+        <div class="meter"><i id="meter" style="width:0%"></i></div>
+        <div style="margin-top:9px">
+          <div class="kv"><span>spent so far</span><b class="mono" id="spent">—</b></div>
+          <div class="kv"><span>requests</span><b class="mono" id="reqs">—</b></div>
+          <div class="kv"><span>req/sec</span><b class="mono" id="rps">—</b></div>
+          <div class="kv"><span>decisions</span><b class="mono" id="thoughts">—</b></div>
+          <div class="kv"><span>p50 latency</span><b class="mono" id="lat">—</b></div>
+        </div>
+      </div>
+      <div class="block"><div class="blabel">Narration</div><div id="narr"></div></div>
+      <div class="block"><div class="blabel">Together</div><div id="couples"></div></div>
+      <div class="block"><div class="blabel">Affairs <span style="color:var(--affair)">the town does not know</span></div><div id="affairs"></div></div>
+      <div class="block"><div class="blabel">The chronicle</div><div id="chronicle"></div></div>
+      <div class="block"><div class="blabel">Rumours spreading</div><div id="rumours"></div></div>
+      <div class="block"><div class="blabel">Hottest moments</div><div id="hot"></div></div>
+    </div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const T = 8;                                   // pixels per tile
+
+/* deterministic PRNG so the town looks identical on every reload */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+const hashStr = s => {let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;};
+
+/* ---------------------------------------------------------------- palettes */
+const GRASS  = ['#3d6a33','#446f37','#4a783c','#39602f','#426b35'];
+const GRASS_D= ['#2f5628','#355e2c'];
+const WATER  = ['#1b4059','#224a66','#2a5773'];
+const SAND   = '#c2ab7e';
+const ROAD   = ['#8f7a58','#9c8763','#836f50'];
+const STONE  = ['#84817b','#8e8b85','#797671'];
+const SKIN   = ['#f2cba4','#e3b48c','#cb966c','#ab784c','#8d5e3b','#6d4628','#513322'];
+const HAIR   = ['#2a1c14','#462d1b','#77481f','#a5722c','#c9a05a','#6d6d6d','#35353d','#8a3a2a','#1a1a1e'];
+const PANTS  = ['#3a4252','#4a4238','#2f3a45','#524a3e','#3d3a48','#45525c'];
+const BOOT   = ['#2b2320','#332a24','#241d1a'];
+const JOB_SHIRT = {
+  baker:'#e6d9bd', barkeep:'#7d4c3a', doctor:'#dde7e9', teacher:'#5b6da0',
+  dockhand:'#4a6c7d', 'radio host':'#8d5ba0', librarian:'#6d5c8d', trainer:'#c35c4a',
+  priest:'#33333f', mechanic:'#6c6c5a', grocer:'#4a8d5c', barista:'#a37c4c',
+  gardener:'#5a8d4a', attendant:'#5a9d96', courier:'#c48d3c',
+};
+
+/* ---------------------------------------------------------------- helpers */
+function surface(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;
+  const g=c.getContext('2d');g.imageSmoothingEnabled=false;return {c,g};}
+const P=(g,x,y,w,h,col)=>{g.fillStyle=col;g.fillRect(x|0,y|0,w|0,h|0);};
+
+/* ------------------------------------------------------------- the ground */
+let terrain=null, blocked=null, props=[], lamps=[];
+
+function buildTerrain(roster){
+  const MW=roster.map.w, MH=roster.map.h, W=MW*T, H=MH*T;
+  const {c,g}=surface(W,H);
+  const rnd=mulberry32(20260919);
+  const shore=roster.shore_y*MH;
+  blocked=new Uint8Array(MW*MH);
+  props=[];                       // filled as features are laid down, below
+  const block=(x,y)=>{if(x>=0&&y>=0&&x<MW&&y<MH)blocked[y*MW+x]=1;};
+
+  // grass field with per-tile variation
+  for(let y=0;y<MH;y++)for(let x=0;x<MW;x++){
+    P(g,x*T,y*T,T,T,GRASS[(rnd()*GRASS.length)|0]);
+    if(rnd()<0.05)P(g,x*T+((rnd()*6)|0),y*T+((rnd()*6)|0),2,2,GRASS_D[(rnd()*2)|0]);
+  }
+
+  // the sea: depth bands, a ragged shoreline, wet sand, foam at the waterline
+  for(let x=0;x<MW;x++){
+    const edge=shore+Math.sin(x*0.19)*1.7+Math.sin(x*0.061)*2.3;
+    for(let y=0;y<MH;y++){
+      if(y<edge-1){
+        const d=(edge-y)/edge;
+        const col=d>0.72?'#15334a':d>0.46?WATER[0]:d>0.22?WATER[1]:WATER[2];
+        P(g,x*T,y*T,T,T,col);
+        if(rnd()<0.06)P(g,x*T+((rnd()*5)|0),y*T+((rnd()*5)|0),3,1,shade(col,14));
+        block(x,y);
+      }else if(y<edge+0.4){P(g,x*T,y*T,T,T,'#9f8a63');block(x,y);}   // wet sand
+      else if(y<edge+1.9){P(g,x*T,y*T,T,T,SAND);
+        if(rnd()<0.10)P(g,x*T+((rnd()*6)|0),y*T+((rnd()*6)|0),2,1,'#d8c9a4');
+        block(x,y);}
+    }
+    // breaking foam along the waterline, plus swell further out
+    if(rnd()<0.70)P(g,x*T,((edge-1)|0)*T+4,T-1,2,'#c3dbe6');
+    for(let k=1;k<4;k++){const wy=(edge-2-k*2.8-Math.sin(x*0.3+k)*1.4);
+      if(wy>0&&rnd()<0.34)P(g,x*T,(wy|0)*T+3,T-2,1,k>1?'#2f5c78':'#6f9cb4');}
+  }
+
+  // roads between connected places
+  const B=roster.buildings;
+  const paveDot=(px,py,r)=>{
+    for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
+      if(dx*dx+dy*dy>r*r+0.6)continue;
+      const x=(px+dx)|0,y=(py+dy)|0;
+      if(x<0||y<0||x>=MW||y>=MH||blocked[y*MW+x])continue;
+      P(g,x*T,y*T,T,T,ROAD[(rnd()*ROAD.length)|0]);
+      if(rnd()<0.10)P(g,x*T+2,y*T+2,2,2,'#75624a');
+      block(x,y);
+    }};
+  for(const [a,b] of roster.roads){
+    const A=B[a],Z=B[b];if(!A||!Z)continue;
+    const steps=Math.hypot(Z.x-A.x,Z.y-A.y)*2.2;
+    for(let i=0;i<=steps;i++){
+      const t=i/steps;
+      // gentle S-curve so roads are not ruler-straight
+      const bow=Math.sin(t*Math.PI)*((hashStr(a+b)%7)-3)*0.55;
+      paveDot(A.x+(Z.x-A.x)*t+bow, A.y+(Z.y-A.y)*t+bow*0.5, 1.6);
+    }
+  }
+
+  // the square: paved stone
+  const sq=B.square;
+  for(let dy=-8;dy<=8;dy++)for(let dx=-10;dx<=10;dx++){
+    if(dx*dx*0.62+dy*dy>72)continue;
+    const x=(sq.x+dx)|0,y=(sq.y+dy)|0;if(x<0||y<0||x>=MW||y>=MH)continue;
+    P(g,x*T,y*T,T,T,STONE[(rnd()*3)|0]);
+    P(g,x*T,y*T,T,1,'rgba(0,0,0,.10)');P(g,x*T,y*T,1,T,'rgba(0,0,0,.10)');
+    block(x,y);
+  }
+  // the well: stone ring, dark water, a shingled canopy on two posts
+  const wx=sq.x*T, wy=sq.y*T;
+  P(g,wx-11,wy+4,22,5,'rgba(0,0,0,.26)');
+  P(g,wx-11,wy-7,22,14,'#7d786e'); P(g,wx-11,wy-7,22,3,'#948e82');
+  for(let i=-10;i<10;i+=5)P(g,wx+i,wy-7,1,14,'#68635b');
+  P(g,wx-8,wy-4,16,8,'#24333f'); P(g,wx-8,wy-4,16,2,'#31485a');
+  P(g,wx-9,wy-18,2,12,'#6b5840'); P(g,wx+7,wy-18,2,12,'#6b5840');
+  P(g,wx-13,wy-23,26,6,'#8a4f34'); P(g,wx-13,wy-23,26,2,'#a5654a');
+  P(g,wx-1,wy-17,2,6,'#4a3a26');
+
+  // the park: darker turf, a pond, a ring of willows
+  const pk=B.park;
+  for(let dy=-10;dy<=10;dy++)for(let dx=-12;dx<=12;dx++){
+    if(dx*dx*0.55+dy*dy>96)continue;
+    const x=(pk.x+dx)|0,y=(pk.y+dy)|0;if(x<0||y<0||x>=MW||y>=MH)continue;
+    if(blocked[y*MW+x])continue;
+    P(g,x*T,y*T,T,T,rnd()<0.5?'#35612c':'#3c6a32');
+  }
+  for(let dy=-4;dy<=4;dy++)for(let dx=-6;dx<=6;dx++){
+    if(dx*dx*0.44+dy*dy>15)continue;
+    const x=(pk.x+dx+4)|0,y=(pk.y+dy+2)|0;if(x<0||y<0||x>=MW||y>=MH)continue;
+    P(g,x*T,y*T,T,T,WATER[dx*dx*0.44+dy*dy>10?2:1]);block(x,y);
+  }
+
+  // the hill: a real mound - terraced rings, a shadowed south face, a cliff lip
+  const hl=B.hill;
+  const HILL=['#2b4a24','#38602e','#477338','#568444','#679553','#7aa663'];
+  // a dark skirt at the foot so the mound lifts off the plain
+  for(let dy=-14;dy<=14;dy++)for(let dx=-18;dx<=18;dx++){
+    if(dx*dx*0.42+dy*dy>190)continue;
+    const x=(hl.x+dx)|0,y=(hl.y+dy)|0;
+    if(x<0||y<0||x>=MW||y>=MH||blocked[y*MW+x])continue;
+    P(g,x*T,y*T,T,T,'#2a4a22');
+  }
+  for(let ring=11;ring>=1;ring--){
+    const band=HILL[Math.min(5,(11-ring)>>1)];
+    for(let dy=-ring;dy<=ring;dy++)for(let dx=-ring-3;dx<=ring+3;dx++){
+      if(dx*dx*0.42+dy*dy>ring*ring)continue;
+      const x=(hl.x+dx)|0,y=(hl.y+dy)|0;if(x<0||y<0||x>=MW||y>=MH||blocked[y*MW+x])continue;
+      P(g,x*T,y*T,T,T,band);
+      // sun from the upper left: darken the lower-right of each terrace
+      if(dx>ring*0.35&&dy>0)P(g,x*T,y*T,T,T,'rgba(0,0,0,.13)');
+    }
+    // rock lip on the exposed edge of every second terrace
+    if(ring%3===1)for(let a=0.15;a<3.0;a+=0.22){
+      const x=(hl.x+Math.cos(a)*(ring+2.2))|0, y=(hl.y+Math.sin(a)*ring)|0;
+      if(x<0||y<0||x>=MW||y>=MH)continue;
+      P(g,x*T,y*T,T,3,'#6b6459'); P(g,x*T,y*T,T,1,'#847c6e');
+    }
+  }
+  for(let i=0;i<10;i++){const a=rnd()*6.28,r=rnd()*7;
+    props.push({k:'rock',x:hl.x+Math.cos(a)*r,y:hl.y+Math.sin(a)*r*0.8});}
+  props.push({k:'tree',x:hl.x+1.5,y:hl.y-3.5,v:1});   // the lone tree on the crown
+
+  // reserve building footprints so nothing is planted on a roof
+  for(const k in B){const b=B[k];if(!b.w)continue;
+    for(let y=(b.y-b.h/2-1)|0;y<=(b.y+b.h/2+1);y++)
+      for(let x=(b.x-b.w/2-1)|0;x<=(b.x+b.w/2+1);x++)block(x,y);}
+
+  // --- vegetation ----------------------------------------------------------
+  // Open spaces (hill, park, square) have no footprint, so without an explicit
+  // keep-clear radius the woodland grows straight over them and they vanish.
+  const CLEAR={hill:15,park:13,square:12};
+  const free=(x,y,pad)=>{
+    const tx=x|0,ty=y|0;
+    if(tx<1||ty<2||tx>=MW-1||ty>=MH-1||blocked[ty*MW+tx])return false;
+    for(const k in B){
+      const b=B[k], c=CLEAR[k]||0;
+      const rw=Math.max(b.w/2,c)+pad, rh=Math.max(b.h/2,c*0.8)+pad;
+      if(Math.abs(b.x-x)<rw&&Math.abs(b.y-y)<rh)return false;
+    }
+    return true;
+  };
+
+  // woodland: clumps, not confetti. Real tree cover grows in stands.
+  for(let s=0;s<26;s++){
+    const cx=rnd()*MW, cy=shore+3+rnd()*(MH-shore-6);
+    const kind=(rnd()*4)|0, spread=3+rnd()*6, n=6+((rnd()*16)|0);
+    for(let i=0;i<n;i++){
+      const x=cx+(rnd()-0.5)*spread*2, y=cy+(rnd()-0.5)*spread*1.5;
+      if(!free(x,y,2.5))continue;
+      props.push({k:'tree',x,y,v:rnd()<0.75?kind:((rnd()*4)|0)});
+      block(x|0,y|0);
+    }
+  }
+  // dense treeline hugging the map edge, so the town reads as enclosed
+  for(let i=0;i<190;i++){
+    const edge=rnd();
+    const x=edge<0.5?rnd()*7:MW-1-rnd()*7, y=shore+2+rnd()*(MH-shore-3);
+    if(!free(x,y,2.5))continue;
+    props.push({k:'tree',x,y,v:(rnd()*2)|0}); block(x|0,y|0);
+  }
+  for(let i=0;i<120;i++){
+    const x=rnd()*MW, y=MH-1-rnd()*6;
+    if(!free(x,y,2.5))continue;
+    props.push({k:'tree',x,y,v:(rnd()*4)|0}); block(x|0,y|0);
+  }
+  // undergrowth, wildflowers, bare earth
+  for(let i=0;i<340;i++){
+    const x=rnd()*MW,y=rnd()*MH;
+    if(!free(x,y,2.0))continue;
+    const r=rnd();
+    if(r<0.34)props.push({k:'bush',x,y,v:(rnd()*4)|0});
+    else if(r<0.52)P(g,x*T+((rnd()*4)|0),y*T+((rnd()*4)|0),2,2,
+                     ['#d8c257','#cc6f80','#c9d0e8','#e8a04a'][(rnd()*4)|0]);
+    else if(r<0.62){
+      for(let d=0;d<5;d++)P(g,(x+rnd()*2.4)*T,(y+rnd()*2.4)*T,T,T,rnd()<.5?'#6b5c42':'#75664a');
+    }
+  }
+  // smallholdings south of the flats
+  const sf=B.south_flats;
+  for(let row=0;row<4;row++)for(let col=0;col<9;col++){
+    const x=sf.x-9+col*2.2, y=sf.y+7+row*2.0;
+    if(!free(x,y,1.5))continue;
+    props.push({k:'crop',x,y,v:row&1});
+  }
+  // picket fences around both blocks of homes
+  for(const k of ['north_flats','south_flats']){
+    const b=B[k];
+    for(let x=-b.w/2-2;x<=b.w/2+2;x+=1.15){
+      const fy=b.y+b.h/2+2.4;
+      P(g,(b.x+x)*T,fy*T,2,7,'#a8916d'); P(g,(b.x+x)*T-1,fy*T-1,4,2,'#c2ab84');
+    }
+  }
+  // lamp posts along the square and the main roads
+  lamps=[];
+  for(let i=0;i<14;i++){const a=i/14*6.283;
+    lamps.push({x:sq.x+Math.cos(a)*10.5,y:sq.y+Math.sin(a)*8.2});}
+  for(const k of ['tavern','cafe','chapel','docks','market','school','bathhouse']){
+    const b=B[k];if(b)lamps.push({x:b.x-b.w/2-2,y:b.y+b.h/2+1.5},{x:b.x+b.w/2+2,y:b.y+b.h/2+1.5});}
+  for(const l of lamps)props.push({k:'lamp',x:l.x,y:l.y,v:0});
+
+  terrain=c;
+}
+
+/* ------------------------------------------------------------- structures */
+const shade=(col,d)=>{const n=parseInt(col.slice(1),16);
+  const cl=v=>Math.max(0,Math.min(255,v));
+  return `rgb(${cl((n>>16)+d)},${cl(((n>>8)&255)+d)},${cl((n&255)+d)})`;};
+
+function makeBuilding(b){
+  const W=b.w*T;
+  const wallH=Math.round(Math.max(17,b.h*T*0.40));
+  const roofH=Math.round(Math.max(18,b.h*T*0.74));
+  const ov=6, crown=26;                          // overhang + room for steeple/chimney
+  const cw=W+ov*2+5, ch=crown+roofH+wallH+9;
+  const {c,g}=surface(cw,ch);
+  const ox=ov+2, oy=crown;                       // top-left of the roof block
+  const roof=b.roof||'#8a5a3a';
+  const wall = b.style==='chapel'?'#d6cfbc':b.style==='civic'?'#d8d2c4':
+               b.style==='tavern'?'#c3ab8c':b.style==='bath'?'#c6d2cf':
+               b.style==='flats'?'#cbb99c':'#cfbd9e';
+  const wallTop=oy+roofH, wallBot=wallTop+wallH;
+
+  // cast shadow, offset down-right like the sun is up-left
+  P(g,ox+5,wallBot-2,W,7,'rgba(0,0,0,.24)');
+  P(g,ox+W-2,oy+roofH-6,9,wallH+4,'rgba(0,0,0,.16)');
+
+  // --- wall face -----------------------------------------------------------
+  P(g,ox,wallTop,W,wallH,wall);
+  for(let x=0;x<W;x+=6)P(g,ox+x,wallTop,1,wallH,shade(wall,-8));   // boards
+  P(g,ox,wallTop,W,3,'rgba(0,0,0,.26)');                           // eave shadow
+  P(g,ox,wallBot-3,W,3,shade(wall,-34));                           // footing
+  // door
+  const dw=10,dx=ox+((W-dw)>>1);
+  P(g,dx,wallBot-14,dw,14,'#4a3222');
+  P(g,dx+1,wallBot-13,dw-2,13,'#6b4a31');
+  P(g,dx+1,wallBot-13,dw-2,2,shade('#6b4a31',22));
+  P(g,dx+dw-3,wallBot-8,2,2,'#e0c063');
+  // windows either side of the door
+  const wy=wallTop+6, wins=[];
+  if(wallH>15)for(const sx of [ox+5, ox+W-12]){
+    if(Math.abs(sx-dx)<11)continue;
+    P(g,sx,wy,7,7,'#4a3826'); P(g,sx+1,wy+1,5,5,'#7fa8c4');
+    P(g,sx+1,wy+1,5,2,'#b9d8ea'); P(g,sx+3,wy+1,1,5,'#4a3826');
+    wins.push({x:sx+1,y:wy+1,w:5,h:5});
+  }
+  wins.push({x:dx+2,y:wallBot-11,w:dw-4,h:4});           // light under the door
+
+  // --- roof: front slope, ridge at the top, darkening to the eave ----------
+  const rx=ox-ov, rw=W+ov*2;
+  for(let i=0;i<roofH;i++){
+    const t=i/roofH;
+    P(g,rx,oy+i,rw,1,shade(roof,Math.round(20-t*46)));
+    if(i%4===3)P(g,rx,oy+i,rw,1,'rgba(0,0,0,.13)');               // tile courses
+  }
+  for(let x=0;x<rw;x+=9)P(g,rx+x,oy,1,roofH,'rgba(0,0,0,.08)');
+  P(g,rx,oy,rw,3,shade(roof,40));                                  // ridge cap
+  P(g,rx,oy+roofH-3,rw,3,shade(roof,-56));                         // eave
+  P(g,rx,oy+roofH,rw,1,'rgba(0,0,0,.30)');
+
+  // --- per-style crowns ----------------------------------------------------
+  const chimney=(cx)=>{P(g,cx,oy-11,6,14,'#6f665b');P(g,cx-1,oy-13,8,3,'#847a6d');
+                       P(g,cx+1,oy-9,4,2,'#3b342e');};
+  if(b.style==='chapel'){
+    P(g,ox+W/2-7,oy-20,14,24,shade(roof,-14));
+    P(g,ox+W/2-8,oy-22,16,4,shade(roof,26));
+    P(g,ox+W/2-4,oy-14,8,8,'#3d4a58'); P(g,ox+W/2-3,oy-13,6,6,'#8fb7cf');
+    P(g,ox+W/2-1,oy-33,2,13,'#e8dfc6'); P(g,ox+W/2-4,oy-29,8,2,'#e8dfc6');
+  }else if(b.style==='tower'){
+    const tx=ox+W-13;
+    P(g,tx,oy-30,4,34,'#8e8a82'); P(g,tx+1,oy-30,1,34,'#b0aca2');
+    for(let i=0;i<4;i++)P(g,tx-5+i,oy-26+i*7,14-i*2,1,'#8e8a82');
+    P(g,tx,oy-34,4,4,'#e8613c');
+    chimney(ox+6);
+  }else if(b.style==='tavern'){
+    P(g,ox+W-17,wallTop+4,14,10,'#3f2c1d');P(g,ox+W-16,wallTop+5,12,8,'#c9a05a');
+    P(g,ox+W-14,wallTop+7,8,4,'#5a3f22');
+    chimney(ox+7);
+  }else if(b.style==='shop'){
+    P(g,ox+1,wallTop+1,W-2,5,shade(roof,18));                      // awning
+    for(let i=0;i<W-2;i+=7)P(g,ox+1+i,wallTop+1,4,5,'#e8dfc9');
+    P(g,ox+1,wallTop+6,W-2,1,'rgba(0,0,0,.25)');
+  }else if(b.style==='civic'){
+    for(let i=0;i<4;i++)P(g,ox+6+i*(W-16)/3,wallTop+4,5,wallH-7,'#eae4d6');
+    P(g,ox+3,wallTop+2,W-6,2,'#eae4d6');
+  }else if(b.style==='flats'){
+    chimney(ox+8); chimney(ox+W-16);
+    for(let i=0;i<3;i++)P(g,ox+4+i*(W-10)/3,oy+6,6,5,'#3d4a58');   // dormers
+  }else if(b.style==='bath'){
+    P(g,ox+W/2-8,oy-8,16,11,shade(roof,22));
+    for(let i=0;i<3;i++)P(g,ox+W/2-5+i*5,oy-15,2,7,'rgba(226,244,244,.45)');
+  }
+  return {img:c,ax:cw/2,ay:wallBot,wins};         // anchor: bottom centre of the wall
+}
+
+function makeStalls(b){                     // market: a row of awnings, no solid block
+  const W=b.w*T,H=b.h*T;const {c,g}=surface(W+8,H+14);
+  P(g,4,H+4,W,6,'rgba(0,0,0,.22)');
+  for(let i=0;i<4;i++){
+    const x=4+i*(W/4),w=W/4-4;
+    P(g,x,18,w,H-10,'#8a7254'); P(g,x,14,w,7,i%2?'#c0553f':'#d8974a');
+    for(let s=0;s<w;s+=6)P(g,x+s,14,3,7,'#e8dfc6');
+    P(g,x+1,H+2,2,8,'#6b5840');P(g,x+w-3,H+2,2,8,'#6b5840');
+  }
+  return {img:c,ax:4+W/2,ay:H+14};
+}
+
+function makeDocks(b){
+  const W=b.w*T,H=b.h*T;const {c,g}=surface(W+10,H+26);
+  // planks running north into the water
+  for(let i=0;i<5;i++)P(g,10+i*((W-16)/5),0,((W-16)/5)-3,H+18,'#7d6a4e');
+  for(let y=0;y<H+18;y+=6)P(g,8,y,W-8,1,'rgba(0,0,0,.18)');
+  // a moored boat and crates
+  P(g,W-26,6,22,9,'#5d4a33'); P(g,W-24,3,18,5,'#7a6244'); P(g,W-17,-9,2,13,'#8e8a82');
+  P(g,W-16,-9,11,8,'#d8d2c2');
+  P(g,6,H+2,10,10,'#8a7254');P(g,7,H+3,8,8,'#a08a68');
+  P(g,18,H+6,8,8,'#8a7254');
+  return {img:c,ax:W/2,ay:H+26};
+}
+
+const TREE_TONES=[
+  ['#24491f','#2f5f28','#3d7733','#4e8c3f'],   // oak
+  ['#1f3f26','#2a5330','#36683c','#457a48'],   // pine, cooler
+  ['#3a4a1c','#4a5f24','#5c762f','#6e8c3c'],   // olive
+  ['#43301f','#5c4526','#7a5c2e','#96763a'],   // autumn
+];
+function makeTree(v){
+  const round=v<3;
+  const {c,g}=surface(20,30);
+  const t=TREE_TONES[v%4];
+  P(g,7,28,8,2,'rgba(0,0,0,.30)');
+  P(g,9,17,3,12,'#4a3524'); P(g,9,17,1,12,'#5f4630');   // trunk with a lit edge
+  if(round){
+    P(g,3,7,14,12,t[0]); P(g,1,10,18,7,t[0]);           // silhouette
+    P(g,4,8,12,10,t[1]);
+    P(g,5,6,9,8,t[2]);  P(g,3,9,4,5,t[2]);
+    P(g,6,4,6,4,t[3]);  P(g,5,5,3,3,t[3]);
+    P(g,8,3,3,2,t[3]);
+    P(g,13,13,3,3,t[0]);                                 // shaded underside
+  }else{                                                 // conifer
+    for(let i=0;i<4;i++){
+      const w=15-i*3, y=17-i*4;
+      P(g,10-(w>>1),y,w,5,t[0]); P(g,11-(w>>1),y,w-2,3,t[1]);
+      P(g,11-(w>>1),y,(w>>1),2,t[2]);
+    }
+    P(g,9,1,3,4,t[2]);
+  }
+  return {img:c,ax:10,ay:30};
+}
+function makeBush(v){
+  const {c,g}=surface(14,12);
+  const t=TREE_TONES[v%4];
+  P(g,3,10,8,2,'rgba(0,0,0,.22)');
+  P(g,1,4,12,7,t[0]); P(g,2,3,9,7,t[1]); P(g,3,3,6,4,t[2]);
+  if(v===3)for(let i=0;i<3;i++)P(g,3+i*3,5,1,1,'#d8566a');   // berries
+  return {img:c,ax:7,ay:12};
+}
+function makeGrave(){
+  const {c,g}=surface(9,12);
+  P(g,1,10,7,2,'rgba(0,0,0,.26)');
+  P(g,2,3,5,8,'#8e8a82'); P(g,2,3,5,1,'#a8a49b'); P(g,3,2,3,2,'#9a968d');
+  P(g,3,5,3,1,'#5f5c56'); P(g,4,5,1,3,'#5f5c56');
+  return {img:c,ax:4,ay:12};
+}
+function makeRock(){
+  const {c,g}=surface(12,10);
+  P(g,2,8,8,2,'rgba(0,0,0,.24)');
+  P(g,2,3,8,6,'#736e66'); P(g,3,2,6,5,'#8a857b'); P(g,4,3,3,2,'#a09a8f');
+  return {img:c,ax:6,ay:10};
+}
+function makeCrop(v){
+  const {c,g}=surface(10,9);
+  const col=v?'#b8a03e':'#7d9a3a';
+  P(g,1,7,8,2,'rgba(0,0,0,.18)');
+  for(let i=0;i<4;i++){P(g,1+i*2,2+(i%2),2,6,col);P(g,1+i*2,2+(i%2),2,2,'#d6c25e');}
+  return {img:c,ax:5,ay:9};
+}
+function makeLamp(){
+  const {c,g}=surface(8,20);
+  P(g,3,18,3,2,'rgba(0,0,0,.28)');
+  P(g,3,6,2,13,'#4a4a52'); P(g,2,3,4,4,'#6b6b75'); P(g,3,4,2,2,'#ffd98a');
+  return {img:c,ax:4,ay:20};
+}
+
+/* ------------------------------------------------------------- characters */
+let atlas=null, atlasIndex={}, CELL_W=11, CELL_H=16;
+const ATLAS_COLS=44;
+
+function drawPerson(g,ox,oy,c,frame){
+  const S=(x,y,w,h,col)=>P(g,ox+x,oy+y,w,h,col);
+  // legs first, so the torso overlaps them cleanly
+  if(frame===0){
+    S(4,11,2,3,c.pants); S(6,11,2,3,c.pants);
+    S(4,14,2,1,c.boot);  S(6,14,2,1,c.boot);
+  }else{
+    S(4,11,2,2,c.pants); S(6,11,2,3,c.pants);
+    S(3,13,3,1,c.boot);  S(6,14,2,1,c.boot);
+  }
+  S(4,6,4,5,c.shirt);                        // torso
+  S(4,6,4,1,c.shirt2);                       // collar highlight
+  S(4,10,4,1,shade(c.shirt,-26));            // hem shadow
+  S(3,6,1,4,shade(c.shirt,-12));             // arms, slightly shaded
+  S(8,6,1,4,shade(c.shirt,-12));
+  S(3,10,1,1,c.skin); S(8,10,1,1,c.skin);    // hands
+  S(4,5,4,1,shade(c.skin,-42));              // neck shadow separates head from body
+  S(4,2,4,4,c.skin);                         // face
+  S(4,5,4,1,shade(c.skin,-20));              // jaw
+  S(4,4,1,1,'#241a16'); S(7,4,1,1,'#241a16');// eyes
+  S(5,4,2,1,shade(c.skin,10));
+  S(4,1,4,2,c.hair);                         // hair
+  S(3,2,1,2,c.hair); S(8,2,1,2,c.hair);
+  S(4,1,2,1,shade(c.hair,26));
+  if(c.long){S(3,4,1,3,c.hair); S(8,4,1,3,c.hair);}
+  if(c.hat){S(3,1,6,1,c.hat); S(4,0,4,1,c.hat); S(3,2,6,1,shade(c.hat,-30));}
+}
+
+/* A dark rim around every sprite. Without it 300 people dissolve into the
+   grass at wide zoom - this is the single biggest readability win. */
+function outlineCell(g,x,y,w,h,col){
+  const img=g.getImageData(x,y,w,h), d=img.data, hits=[];
+  const at=(px,py)=>d[((py*w+px)<<2)+3];
+  for(let py=0;py<h;py++)for(let px=0;px<w;px++){
+    if(at(px,py))continue;
+    if((px>0&&at(px-1,py))||(px<w-1&&at(px+1,py))||
+       (py>0&&at(px,py-1))||(py<h-1&&at(px,py+1)))hits.push([px,py]);
+  }
+  g.fillStyle=col;
+  for(const [px,py] of hits)g.fillRect(x+px,y+py,1,1);
+}
+
+let atlasG=null, atlasSlots=0, atlasCap=0;
+
+function lookFor(id, job){
+  const r=mulberry32(hashStr(id)*2654435761>>>0);
+  return {
+    skin:SKIN[(r()*SKIN.length)|0], hair:HAIR[(r()*HAIR.length)|0],
+    shirt:JOB_SHIRT[job]||'#7a7a86', shirt2:'rgba(255,255,255,.16)',
+    pants:PANTS[(r()*PANTS.length)|0], boot:BOOT[(r()*BOOT.length)|0],
+    long:r()<0.42, hat:r()<0.18?['#4a3a2a','#6b3a3a','#3a4a5a','#5a5040'][(r()*4)|0]:null,
+  };
+}
+
+/* The atlas used to be baked once from the opening roster, so every person who
+   arrived later had no sprite and was simply invisible. It now grows. */
+function growAtlas(need){
+  if(atlas && atlasCap>=need) return;
+  const cap=Math.max(need, atlasCap*2, 128);
+  const rows=Math.ceil(cap*2/ATLAS_COLS);
+  const {c,g}=surface(ATLAS_COLS*CELL_W, rows*CELL_H);
+  if(atlas) g.drawImage(atlas,0,0);     // column count is fixed, so slots keep their spot
+  atlas=c; atlasG=g; atlasCap=cap;
+}
+
+function addPerson(id, job){
+  if(atlasIndex[id]!==undefined) return;
+  growAtlas(atlasSlots+1);
+  const i=atlasSlots++, look=lookFor(id, job);
+  for(let f=0;f<2;f++){
+    const n=i*2+f, cx=(n%ATLAS_COLS)*CELL_W, cy=((n/ATLAS_COLS)|0)*CELL_H;
+    atlasG.clearRect(cx,cy,CELL_W,CELL_H);
+    drawPerson(atlasG,cx,cy,look,f);
+    outlineCell(atlasG,cx,cy,CELL_W,CELL_H,'rgba(20,14,18,.80)');
+  }
+  atlasIndex[id]=i;
+}
+
+function buildAtlas(people){
+  for(const id in people) addPerson(id, people[id].j);
+}
+
+let rosterPending=false;
+function refreshRoster(){
+  if(rosterPending) return;
+  rosterPending=true;
+  fetch('/api/roster').then(r=>r.json()).then(r=>{
+    for(const id in r.people){
+      if(!roster.people[id]){ roster.people[id]=r.people[id]; addPerson(id, r.people[id].j); }
+    }
+  }).catch(()=>{}).finally(()=>{ rosterPending=false; });
+}
+
+/* ------------------------------------------------------------ the renderer */
+let roster=null, sprites={}, live=new Map(), lastFrameAt=0, phase='morning', hoverId=null;
+let counts={};
+let graves=[];
+let lastCaption='';
+/* Camera. A 24/7 stream is unwatchable from orbit: the director cuts to
+   whatever just blew up, holds, then pulls back out. */
+const cam={x:64,y:40,z:1,tx:64,ty:40,tz:1,hold:0,auto:true,last:''};
+function cutTo(px,py,z,seconds){cam.tx=px;cam.ty=py;cam.tz=z;cam.hold=seconds;}
+const EMOTE_COL={'!':'#e8613c','+':'#3fc08a','?':'#b083f0','~':'#5a9bd8'};
+
+function prepare(r){
+  roster=r;
+  buildTerrain(r);
+  for(const k in r.buildings){
+    const b=r.buildings[k];
+    if(b.style==='stalls')sprites[k]=makeStalls(b);
+    else if(b.style==='docks')sprites[k]=makeDocks(b);
+    else if(b.w)sprites[k]=makeBuilding(b);
+  }
+  sprites.__tree=[0,1,2,3].map(makeTree);
+  sprites.__bush=[0,1,2,3].map(makeBush);
+  sprites.__crop=[0,1].map(makeCrop);
+  sprites.__rock=makeRock();
+  sprites.__grave=makeGrave();
+  sprites.__lamp=makeLamp();
+  buildAtlas(r.people);
+}
+
+/* sky tint per hour of the simulated day */
+function tintFor(ph){
+  return {night:['rgba(16,26,66,.62)',0.95], evening:['rgba(120,60,30,.30)',0.35],
+          afternoon:['rgba(255,196,120,.10)',0], midday:['rgba(255,244,214,.05)',0],
+          morning:['rgba(255,214,160,.13)',0.05]}[ph]||['rgba(0,0,0,0)',0];
+}
+
+function draw(now){
+  requestAnimationFrame(draw);
+  const cv=$('town'), g=cv.getContext('2d');
+  g.imageSmoothingEnabled=false;
+  if(!terrain){g.fillStyle='#05080b';g.fillRect(0,0,cv.width,cv.height);return;}
+
+  // ease toward the camera target, then frame the world through it
+  const dt=Math.min(0.05,(now-(draw._t||now))/1000); draw._t=now;
+  if(cam.hold>0){cam.hold-=dt; if(cam.hold<=0&&cam.auto){cam.tx=64;cam.ty=40;cam.tz=1;}}
+  cam.x+=(cam.tx-cam.x)*0.055; cam.y+=(cam.ty-cam.y)*0.055; cam.z+=(cam.tz-cam.z)*0.045;
+  const half=cam.z>1.02;
+  if(half){ // keep the framing inside the map
+    const vw=cv.width/(2*T*cam.z), vh=cv.height/(2*T*cam.z);
+    cam.x=Math.max(vw,Math.min(roster.map.w-vw,cam.x));
+    cam.y=Math.max(vh,Math.min(roster.map.h-vh,cam.y));
+  }
+  g.save();
+  g.setTransform(cam.z,0,0,cam.z, cv.width/2-cam.x*T*cam.z, cv.height/2-cam.y*T*cam.z);
+  g.imageSmoothingEnabled=false;
+  g.fillStyle='#05080b';g.fillRect(-200,-200,cv.width+400,cv.height+400);
+
+  g.drawImage(terrain,0,0);
+
+  // interpolate each person toward the position from the latest tick
+  const t=Math.min(1,(now-lastFrameAt)/1000);
+  const drawables=[];
+  for(const [k,b] of Object.entries(roster.buildings)){
+    if(sprites[k])drawables.push({y:b.y,f:()=>{
+      const s=sprites[k];g.drawImage(s.img,b.x*T-s.ax,b.y*T+b.h*T/2-s.ay);}});
+  }
+  for(const p of props){
+    const s=p.k==='tree'?sprites.__tree[p.v|0]
+           :p.k==='bush'?sprites.__bush[p.v|0]
+           :p.k==='crop'?sprites.__crop[p.v|0]
+           :p.k==='rock'?sprites.__rock:sprites.__lamp;
+    drawables.push({y:p.y,f:()=>g.drawImage(s.img,p.x*T-s.ax,p.y*T-s.ay)});
+  }
+  // the graveyard grows beside the chapel; it is the town's memory
+  if(roster.buildings.chapel){
+    const ch=roster.buildings.chapel, gs=sprites.__grave;
+    graves.forEach((gv,i)=>{
+      const gx=ch.x-7.5+(i%4)*1.9, gy=ch.y+4.5+((i/4)|0)*2.1;
+      drawables.push({y:gy,f:()=>g.drawImage(gs.img,gx*T-gs.ax,gy*T-gs.ay)});
+    });
+  }
+  for(const a of live.values()){
+    if(a.s)continue;                                  // asleep: indoors, not drawn
+    const x=a.px+(a.x-a.px)*t, y=a.py+(a.y-a.py)*t;
+    a.cx=x; a.cy=y;
+    const moving=Math.hypot(a.x-a.px,a.y-a.py)>0.12;
+    const frame=moving?(((now/170)|0)+a.ph)&1:0;
+    drawables.push({y,f:()=>{
+      const i=atlasIndex[a.i]; if(i===undefined)return;
+      const n=i*2+frame, sx=(n%ATLAS_COLS)*CELL_W, sy=((n/ATLAS_COLS)|0)*CELL_H;
+      const dx=Math.round(x*T-CELL_W/2), dy=Math.round(y*T-CELL_H);
+      g.fillStyle='rgba(0,0,0,.26)';
+      g.beginPath();g.ellipse(dx+CELL_W/2,dy+CELL_H-1,3.4,1.5,0,0,6.283);g.fill();
+      if(a.f<0){g.save();g.translate(dx+CELL_W,dy);g.scale(-1,1);
+        g.drawImage(atlas,sx,sy,CELL_W,CELL_H,0,0,CELL_W,CELL_H);g.restore();}
+      else g.drawImage(atlas,sx,sy,CELL_W,CELL_H,dx,dy,CELL_W,CELL_H);
+      if(a.i===hoverId){g.strokeStyle='#f0b429';g.lineWidth=1;
+        g.strokeRect(dx-1.5,dy-1.5,CELL_W+3,CELL_H+3);}
+    }});
+  }
+  drawables.sort((p,q)=>p.y-q.y);
+  for(const d of drawables)d.f();
+
+  // time of day
+  const [tint,lampOn]=tintFor(phase);
+  if(tint!=='rgba(0,0,0,0)'){g.fillStyle=tint;g.fillRect(0,0,cv.width,cv.height);}
+  if(lampOn>0.1){
+    // lit windows: drawn after the tint so the town looks inhabited at night
+    for(const [k,b] of Object.entries(roster.buildings)){
+      const sp=sprites[k]; if(!sp||!sp.wins)continue;
+      const bx=b.x*T-sp.ax, by=(b.y+b.h/2)*T-sp.ay;
+      for(const w of sp.wins){
+        g.fillStyle=`rgba(255,206,122,${0.80*lampOn})`;
+        g.fillRect(bx+w.x,by+w.y,w.w,w.h);
+      }
+    }
+    g.globalCompositeOperation='lighter';
+    for(const [k,b] of Object.entries(roster.buildings)){
+      const sp=sprites[k]; if(!sp||!sp.wins)continue;
+      const bx=b.x*T-sp.ax, by=(b.y+b.h/2)*T-sp.ay;
+      for(const w of sp.wins){
+        const cx=bx+w.x+w.w/2, cy=by+w.y+w.h/2;
+        const gr=g.createRadialGradient(cx,cy,0,cx,cy,13);
+        gr.addColorStop(0,`rgba(255,190,110,${0.20*lampOn})`);
+        gr.addColorStop(1,'rgba(255,180,80,0)');
+        g.fillStyle=gr; g.fillRect(cx-13,cy-13,26,26);
+      }
+    }
+    for(const l of lamps){
+      const gr=g.createRadialGradient(l.x*T,l.y*T-14,0,l.x*T,l.y*T-14,30);
+      gr.addColorStop(0,`rgba(255,196,96,${0.30*lampOn})`);
+      gr.addColorStop(1,'rgba(255,180,80,0)');
+      g.fillStyle=gr;g.fillRect(l.x*T-30,l.y*T-44,60,60);
+    }
+    g.globalCompositeOperation='source-over';
+  }
+
+  // emote bubbles ride above everyone, after the tint so they stay legible
+  g.textAlign='center';
+  for(const a of live.values()){
+    if(a.s||!a.e||a.cx===undefined)continue;
+    const col=EMOTE_COL[a.e]||'#fff';
+    const bx=Math.round(a.cx*T), by=Math.round(a.cy*T)-CELL_H-9;
+    g.fillStyle='rgba(12,16,22,.92)'; g.fillRect(bx-5,by-7,11,11);
+    g.fillStyle=col; g.fillRect(bx-5,by-7,11,1); g.fillRect(bx-5,by+3,11,1);
+    g.fillRect(bx-5,by-7,1,11); g.fillRect(bx+5,by-7,1,11);
+    g.fillStyle='rgba(12,16,22,.92)'; g.fillRect(bx-1,by+4,3,3);
+    g.fillStyle=col; g.fillRect(bx,by+6,1,1);
+    g.font='bold 9px ui-monospace,monospace';
+    g.fillText(a.e,bx+0.5,by+1.5);
+  }
+
+  // place names last of all: a plate keyed to the building's own roof colour,
+  // with the current head-count, which is the thing a viewer actually wants.
+  g.font='bold 8px ui-monospace,monospace'; g.textAlign='left';
+  for(const [k,b] of Object.entries(roster.buildings)){
+    const name=b.label.toUpperCase(), n=counts[k]||0;
+    const tw=g.measureText(name).width, nw=n?g.measureText(String(n)).width+7:0;
+    const w=tw+nw+9, h=12, lx=Math.round(b.x*T-w/2), ly=Math.round((b.y+(b.h?b.h/2:4.5))*T+6);
+    g.fillStyle='rgba(5,9,13,.82)'; g.fillRect(lx,ly,w,h);
+    g.fillStyle=b.roof||'#8a8a94'; g.fillRect(lx,ly,2,h);
+    g.fillStyle='rgba(232,241,250,.94)'; g.fillText(name,lx+6,ly+9);
+    if(n){
+      g.fillStyle='rgba(240,180,41,.95)';
+      g.fillText(String(n),lx+6+tw+5,ly+9);
+    }
+  }
+  g.restore();
+
+  if(cam.z>1.02){                                   // "on air" framing marks
+    g.strokeStyle='rgba(240,180,41,.55)';g.lineWidth=2;
+    g.strokeRect(1,1,cv.width-2,cv.height-2);
+  }
+}
+
+/* ------------------------------------------------------------------ wiring */
+let seen=new Set();
+function render(s){
+  $('clock').textContent=s.time; $('phase').textContent=s.phase; phase=s.phase;
+  const b=$('badge');
+  b.textContent=s.mock?'mock jev':'live jev';
+  b.className='badge '+(s.mock?'mock':'real');
+  $('pop').textContent=`${s.awake}/${s.agents} out`;
+  counts={}; for(const p of s.places)counts[p.id]=p.n;
+
+  // Without this the dead are never forgotten and their sprites stand on the
+  // map for the rest of the stream.
+  const present=new Set(s.agents_live.map(a=>a.i));
+  for(const id of [...live.keys()]) if(!present.has(id)) live.delete(id);
+
+  let unknown=false;
+  for(const a of s.agents_live){
+    if(atlasIndex[a.i]===undefined) unknown=true;
+    const cur=live.get(a.i);
+    if(cur){cur.px=cur.cx!==undefined?cur.cx:cur.x; cur.py=cur.cy!==undefined?cur.cy:cur.y;
+            cur.x=a.x;cur.y=a.y;cur.f=a.f;cur.s=a.s;cur.e=a.e;}
+    else live.set(a.i,{...a,px:a.x,py:a.y,ph:(hashStr(a.i)&1)});
+  }
+  if(unknown) refreshRoster();      // somebody arrived after we loaded
+  lastFrameAt=performance.now();
+
+  const e=s.econ, over=e.projected_daily_usd>e.budget_usd*1.08;
+  $('daily').textContent='$'+e.projected_daily_usd.toFixed(2);
+  $('daily').className='big mono '+(over?'warn':'ok');
+  $('dailysub').textContent=`per day · ceiling $${e.budget_usd.toFixed(2)} · ${s.agents} agents`;
+  const m=$('meter');
+  m.style.width=Math.min(100,100*e.projected_daily_usd/e.budget_usd)+'%';
+  m.style.background=over?'var(--conflict)':'var(--bond)';
+  $('spent').textContent='$'+e.spent_usd.toFixed(4);
+  $('reqs').textContent=e.requests.toLocaleString();
+  $('rps').textContent=e.req_per_sec.toFixed(2);
+  $('thoughts').textContent=e.agent_thoughts.toLocaleString();
+  $('lat').textContent=e.p50_latency_ms.toFixed(0)+' ms';
+  $('rate').textContent=`${e.requests.toLocaleString()} reqs · ${e.agent_thoughts.toLocaleString()} decisions`;
+
+  // direct the camera: the newest high-heat moment wins the cut
+  if(cam.auto&&roster){
+    let best=null;
+    for(const ev of s.feed){
+      if(ev.heat<0.62||ev.tick<s.tick-4)continue;
+      if(!best||ev.heat>best.heat)best=ev;
+    }
+    const key=best?best.t+best.text:'';
+    if(best&&key!==cam.last&&cam.hold<=0.6){
+      const b=roster.buildings[best.pid];
+      if(b){cam.last=key; cutTo(b.x,b.y+1.5,2.8,7.5);}
+    }
+  }
+
+  const feed=$('feed');
+  s.feed.slice().reverse().forEach(ev=>{
+    const key=ev.t+ev.text; if(seen.has(key))return; seen.add(key);
+    const d=document.createElement('div'); d.className='ev '+ev.kind;
+    d.innerHTML=`<div class="tm mono">${esc((ev.t.split(', ')[1]||'').slice(0,5))}</div>
+      <div><div class="tx">${esc(ev.text)}</div><div class="pl">${esc(ev.place)}</div></div>`;
+    feed.prepend(d);
+  });
+  while(feed.childElementCount>60)feed.lastChild.remove();
+  if(seen.size>3000)seen=new Set([...seen].slice(-1200));
+
+  $('rumours').innerHTML=s.rumours.length?s.rumours.map(r=>`
+    <div class="rum"><div class="t">“${esc(r.text)}”</div>
+      <div class="bar"><i style="width:${Math.min(100,r.pct)}%"></i></div>
+      <div class="m"><span>${r.true?'and it is true':'unverified'}</span>
+        <b>${r.reach} people · ${r.pct}%</b></div></div>`).join('')
+    :'<div class="sub">nothing yet</div>';
+  $('hot').innerHTML=s.hot.map(h=>`<div class="hot">${esc(h.text)}<em>${esc(h.t)}</em></div>`).join('');
+
+  const n=s.narration;
+  if(n){
+    const top=n.lines[0];
+    if(top && top.text!==lastCaption){
+      lastCaption=top.text;
+      $('capline').textContent=top.text;
+      const fromModel = top.source!=='template';
+      $('capsrc').textContent=fromModel?top.source:'template';
+      $('capsrc').className='src '+(fromModel?'claude':'template');
+      $('captime').textContent=top.at;
+      $('caption').classList.add('on');
+    }
+    const over=n.projected_daily_usd>n.budget_usd*1.08;
+    $('narr').innerHTML=`
+      <div class="kv"><span>voice</span><b>${esc(n.model)}</b></div>
+      <div class="kv"><span>lines written</span><b class="mono">${n.calls}</b></div>
+      <div class="kv"><span>spent</span><b class="mono">$${n.spent_usd.toFixed(4)}</b></div>
+      <div class="kv"><span>projected</span><b class="mono" style="color:${
+        over?'var(--conflict)':'var(--bond)'}">$${n.projected_daily_usd.toFixed(2)}/day</b></div>
+      ${n.errors?`<div class="kv"><span>errors</span><b class="mono">${n.errors}</b></div>`:''}`;
+  }
+
+  $('couples').innerHTML=s.couples.length?s.couples.map(c=>`
+    <div class="pair"><div class="who">${esc(c.a)} <span style="color:var(--faint)">&amp;</span> ${esc(c.b)}</div>
+      ${c.cheating?'<span class="tag cheat">cheating</span>'
+                  :`<span class="tag since">day ${c.since}</span>`}</div>`).join('')
+    :'<div class="sub">nobody yet</div>';
+
+  $('affairs').innerHTML=s.affairs.length?s.affairs.map(a=>`
+    <div class="pair" style="display:block">
+      <div class="who">${esc(a.a)} <span style="color:var(--affair)">&amp;</span> ${esc(a.b)}</div>
+      <div class="risk"><i style="width:${Math.min(100,a.exposed_risk*100)}%"></i></div>
+      <div style="font-size:9.5px;color:var(--faint);margin-top:2px">
+        ${a.exposed_risk>0?`${Math.round(a.exposed_risk*100)}% of town has heard`:'nobody has heard'}</div>
+    </div>`).join('')
+    :'<div class="sub">everyone is behaving</div>';
+
+  $('chronicle').innerHTML=s.chronicle.length?s.chronicle.map(c=>`
+    <div class="chr ${esc(c.kind)}"><b>day ${c.day+1}</b><span>${esc(c.text)}</span></div>`).join('')
+    :'<div class="sub">nothing has happened yet</div>';
+
+  graves=s.graves||[];
+}
+
+/* hover a person to see who they are */
+const stage=$('stage'), cv=$('town'), tip=$('tip');
+stage.addEventListener('mousemove',ev=>{
+  const r=cv.getBoundingClientRect();
+  const sx=(ev.clientX-r.left)/r.width*cv.width, sy=(ev.clientY-r.top)/r.height*cv.height;
+  const x=(sx-(cv.width/2-cam.x*T*cam.z))/(T*cam.z);
+  const y=(sy-(cv.height/2-cam.y*T*cam.z))/(T*cam.z);
+  let best=null,bd=3.2;
+  for(const a of live.values()){
+    if(a.s||a.cx===undefined)continue;
+    const d=Math.hypot(a.cx-x,a.cy-y-0.8);
+    if(d<bd){bd=d;best=a;}
+  }
+  hoverId=best?best.i:null;
+  const p=best&&roster?roster.people[best.i]:null;
+  if(p){
+    tip.innerHTML=`<b>${esc(p.n)}</b><em>${esc(p.j)}, ${p.age}</em>`;
+    tip.style.left=(ev.clientX-stage.getBoundingClientRect().left+14)+'px';
+    tip.style.top=(ev.clientY-stage.getBoundingClientRect().top+10)+'px';
+    tip.style.opacity=1;
+  }else tip.style.opacity=0;
+});
+stage.addEventListener('mouseleave',()=>{tip.style.opacity=0;hoverId=null;});
+stage.addEventListener('click',()=>{
+  cam.auto=!cam.auto;
+  if(!cam.auto){cam.tx=64;cam.ty=40;cam.tz=1;cam.hold=0;}
+  $('cammode').textContent=cam.auto?'auto-cut':'wide';
+  $('cammode').style.color=cam.auto?'#f0b429':'#7e8ea4';
+});
+window.addEventListener('keydown',e=>{
+  if(e.key==='f'||e.key==='F'){cam.tz=cam.tz>1.5?1:2.8;cam.hold=12;}
+  if(e.key==='s'||e.key==='S')document.body.classList.toggle('stream');
+});
+
+fetch('/api/roster').then(r=>r.json()).then(r=>{
+  prepare(r);
+  requestAnimationFrame(draw);
+  const src=new EventSource('/api/stream');
+  src.onmessage=e=>{try{render(JSON.parse(e.data));}catch(err){console.error(err);}};
+  src.onerror=()=>{$('badge').textContent='reconnecting';};
+  return fetch('/api/state').then(r=>r.json()).then(render);
+}).catch(err=>console.error('boot failed',err));
+</script>
+</body>
+</html>

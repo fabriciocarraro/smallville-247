@@ -1,0 +1,24 @@
+# local environment
+.venv/
+__pycache__/
+*.pyc
+
+# runtime output
+*.log
+*.err
+*.out
+state.json*
+
+# collected run data: regenerate it with collect_hour.py, audit it with
+# audit_hour.py. Kept out of the repo because it is generated, not authored.
+*.jsonl
+
+# never commit keys; they live in TYPESAFE_API_KEY / OPENAI_API_KEY
+.env
+
+# one-off setup debugging: prints a prefix of the API key to stdout
+check_openai_key.py
+
+# not part of the project
+POST.md
+post/
